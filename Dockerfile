@@ -1,23 +1,19 @@
 ARG PHP_VERSION=7.4
 FROM php:${PHP_VERSION}-apache
 
-# install the PHP extensions we need
 RUN set -ex; \
-	\
 	savedAptMark="$(apt-mark showmanual)"; \
-	\
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		libjpeg-dev \
 		libpng-dev \
 		libzip-dev \
 		libfreetype6-dev \
+		git \
+		unzip \
 	; \
-	\
 	docker-php-ext-configure gd --with-freetype --with-jpeg; \
 	docker-php-ext-install gd mysqli opcache zip; \
-	\
-# reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
 	apt-mark auto '.*' > /dev/null; \
 	apt-mark manual $savedAptMark; \
 	ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
@@ -27,12 +23,11 @@ RUN set -ex; \
 		| cut -d: -f1 \
 		| sort -u \
 		| xargs -rt apt-mark manual; \
-	\
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
 	rm -rf /var/lib/apt/lists/*
 
-# set recommended PHP.ini settings
-# see https://secure.php.net/manual/en/opcache.installation.php
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 RUN { \
 		echo 'opcache.memory_consumption=128'; \
 		echo 'opcache.interned_strings_buffer=8'; \
